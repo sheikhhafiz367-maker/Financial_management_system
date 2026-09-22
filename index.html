@@ -1,0 +1,829 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Elite Cashflow & Sankey Financial Dashboard</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary: #2563eb;
+            --primary-glow: rgba(37, 99, 235, 0.25);
+            --success: #10b981;
+            --danger: #ef4444;
+            --bg-gradient: linear-gradient(135deg, #090d16 0%, #111827 50%, #0f172a 100%);
+            --card-bg: rgba(30, 41, 59, 0.7);
+            --card-border: rgba(255, 255, 255, 0.08);
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+        }
+
+        * { box-sizing: border-box; font-family: 'Plus Jakarta Sans', sans-serif; }
+        body { background: var(--bg-gradient); min-height: 100vh; margin: 0; padding: 25px; color: var(--text-main); }
+
+        .app-nav {
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+            margin-bottom: 30px;
+        }
+        .nav-btn {
+            padding: 14px 28px;
+            border: none;
+            border-radius: 16px;
+            cursor: pointer;
+            font-weight: 700;
+            font-size: 15px;
+            background: rgba(30, 41, 59, 0.8);
+            color: var(--text-muted);
+            box-shadow: 0 8px 25px rgba(0,0,0,0.3);
+            border: 1px solid var(--card-border);
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .nav-btn:hover { border-color: rgba(255, 255, 255, 0.2); color: var(--text-main); }
+        .nav-btn.active {
+            background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+            color: white;
+            box-shadow: 0 10px 25px rgba(37, 99, 235, 0.4);
+            border-color: rgba(255, 255, 255, 0.2);
+        }
+
+        .page-view { display: none; max-width: 1100px; margin: 0 auto; }
+        .page-view.active { display: block; }
+
+        .header-title { text-align: center; color: var(--text-main); font-weight: 800; margin-bottom: 30px; font-size: 28px; letter-spacing: -0.5px; }
+        .header-title span { background: linear-gradient(135deg, #60a5fa, #c084fc); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+
+        .summary-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin-bottom: 25px;
+        }
+        .card {
+            background: var(--card-bg);
+            backdrop-filter: blur(16px);
+            padding: 26px;
+            border-radius: 22px;
+            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.3);
+            border: 1px solid var(--card-border);
+            border-left: 6px solid var(--primary);
+            position: relative;
+            overflow: hidden;
+        }
+        .card::before {
+            content: ''; position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: radial-gradient(circle at top right, rgba(255,255,255,0.03), transparent); pointer-events: none;
+        }
+        .card h4 { margin: 0 0 10px 0; color: var(--text-muted); font-size: 11px; text-transform: uppercase; letter-spacing: 1.2px; font-weight: 700; }
+        .card .amount { font-size: 32px; font-weight: 800; color: var(--primary); letter-spacing: -0.5px; }
+        .card.card-income { border-left-color: var(--success); }
+        .card.card-income .amount { color: var(--success); }
+        .card.card-expense { border-left-color: var(--danger); }
+        .card.card-expense .amount { color: var(--danger); }
+
+        .controls {
+            background: var(--card-bg);
+            backdrop-filter: blur(16px);
+            padding: 22px 28px;
+            border-radius: 22px;
+            margin-bottom: 25px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 15px;
+            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.3);
+            border: 1px solid var(--card-border);
+        }
+        .filter-group { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+        .filter-group label { font-weight: 700; color: var(--text-main); font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px; }
+        .filter-group select, input {
+            padding: 12px 18px;
+            font-weight: 600;
+            border-radius: 14px;
+            border: 1px solid var(--card-border);
+            background-color: rgba(15, 23, 42, 0.8);
+            color: var(--text-main);
+            outline: none;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .filter-group select:focus, input:focus { border-color: var(--primary); box-shadow: 0 0 0 3px var(--primary-glow); }
+
+        .btn {
+            padding: 12px 22px;
+            border: none;
+            border-radius: 14px;
+            cursor: pointer;
+            font-weight: 700;
+            transition: all 0.25s ease;
+            font-size: 14px;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+        }
+        .btn-add { background: linear-gradient(135deg, #10b981, #059669); color: white; }
+        .btn-manage { background: linear-gradient(135deg, #2563eb, #1d4ed8); color: white; }
+        .btn-img { background: linear-gradient(135deg, #a855f7, #7e22ce); color: white; }
+        .btn:hover { transform: translateY(-2px); filter: brightness(1.1); }
+
+        .entry-form-wrapper {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 25px;
+            margin-bottom: 25px;
+        }
+        @media (max-width: 900px) {
+            .entry-form-wrapper { grid-template-columns: 1fr; }
+        }
+        .entry-form-box {
+            background: var(--card-bg);
+            backdrop-filter: blur(16px);
+            padding: 26px;
+            border-radius: 22px;
+            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.3);
+            border: 1px solid var(--card-border);
+        }
+        .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+        .form-group { grid-column: span 2; }
+        .form-group.half { grid-column: span 1; }
+        .form-group label { display: block; font-size: 11px; font-weight: 700; color: var(--text-muted); margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px; }
+        .form-group input, .form-group select { width: 100%; }
+
+        .table-responsive { overflow-x: auto; background: var(--card-bg); backdrop-filter: blur(16px); border-radius: 22px; border: 1px solid var(--card-border); margin-bottom: 25px; box-shadow: 0 15px 35px rgba(0, 0, 0, 0.3); }
+        table { width: 100%; border-collapse: collapse; min-width: 700px; }
+        th, td { padding: 18px 22px; text-align: left; border-bottom: 1px solid var(--card-border); font-size: 14px; }
+        th { background-color: rgba(15, 23, 42, 0.6); color: var(--text-muted); font-size: 11px; text-transform: uppercase; font-weight: 700; letter-spacing: 0.8px; }
+        tr:hover { background-color: rgba(255, 255, 255, 0.02); }
+
+        .btn-delete { background: rgba(239, 68, 68, 0.15); color: var(--danger); padding: 8px 14px; border: none; border-radius: 10px; cursor: pointer; font-weight: 700; transition: 0.2s; }
+        .btn-delete:hover { background: var(--danger); color: white; }
+
+        .section-title { color: var(--text-main); border-bottom: 2px solid var(--card-border); padding-bottom: 12px; margin-bottom: 20px; font-size: 16px; font-weight: 700; letter-spacing: 0.5px; }
+
+        /* Sankey Dashboard Theme */
+        .ds-widget {
+            background: #090d16;
+            color: #ffffff;
+            border-radius: 26px;
+            padding: 35px;
+            box-shadow: 0 25px 50px rgba(0,0,0,0.6);
+            border: 1px solid rgba(255,255,255,0.08);
+            margin-bottom: 25px;
+        }
+        .ds-top-stats {
+            display: flex;
+            justify-content: space-around;
+            align-items: center;
+            margin-bottom: 35px;
+            text-align: center;
+        }
+        .ds-stat-num { font-size: 32px; font-weight: 800; letter-spacing: -0.5px; }
+        .ds-stat-label { font-size: 12px; color: #94a3b8; margin-top: 6px; text-transform: uppercase; font-weight: 600; letter-spacing: 0.5px; }
+        .ds-divider { width: 1px; height: 40px; background: rgba(255,255,255,0.12); }
+
+        .ds-chart-container { position: relative; width: 100%; min-height: 300px; margin-bottom: 30px; }
+        .ds-chart-container svg { width: 100%; height: 280px; overflow: visible; }
+
+        .category-section-title { font-size: 18px; font-weight: 700; color: #fff; margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; }
+        .categories-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+            gap: 20px;
+            margin-bottom: 25px;
+        }
+        .cat-view-card {
+            background: rgba(30, 41, 59, 0.4);
+            border: 1px solid rgba(255, 255, 255, 0.06);
+            border-radius: 18px;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            backdrop-filter: blur(10px);
+        }
+        .cat-view-header {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 14px;
+            font-weight: 600;
+            color: #f1f5f9;
+        }
+        .cat-dot { width: 10px; height: 10px; border-radius: 50%; }
+        .cat-slider-track {
+            width: 100%;
+            height: 6px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 3px;
+            position: relative;
+            overflow: hidden;
+        }
+        .cat-slider-fill { height: 100%; background: #3b82f6; border-radius: 3px; width: 70%; }
+        .cat-value-badge {
+            align-self: flex-end;
+            background: rgba(15, 23, 42, 0.8);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            padding: 8px 16px;
+            border-radius: 12px;
+            font-weight: 700;
+            font-size: 16px;
+            color: #f8fafc;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+        }
+
+        .modal { display: none; position: fixed; z-index: 200; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(15, 23, 42, 0.8); backdrop-filter: blur(10px); justify-content: center; align-items: center; }
+        .modal-content { background: #1e293b; padding: 32px; border-radius: 26px; width: 500px; max-width: 95%; box-shadow: 0 25px 50px rgba(0, 0, 0, 0.5); border: 1px solid var(--card-border); color: #f8fafc; }
+        .item-row { display: flex; gap: 12px; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--card-border); }
+        .opening-balance-row { background: rgba(16, 185, 129, 0.08) !important; font-style: italic; }
+    </style>
+</head>
+<body>
+
+    <div class="app-nav">
+        <button class="nav-btn active" onclick="switchTab('sheetView', this)">💰 Income & Expense Management</button>
+        <button class="nav-btn" onclick="switchTab('graphView', this)">📊 4 Pillar Cashflow Dashboard</button>
+    </div>
+
+    <!-- PAGE 1: Income & Expense Management Sheet -->
+    <div id="sheetView" class="page-view active">
+        <h2 class="header-title">💰 Monthly & Yearly <span>Income & Expense</span> Management</h2>
+
+        <div class="controls">
+            <div class="filter-group">
+                <label>📅 Select Period:</label>
+                <select id="filterYear" onchange="renderAndCalculate()"></select>
+                <select id="filterMonth" onchange="renderAndCalculate()">
+                    <option value="all">Full Year (Yearly Report)</option>
+                    <option value="01">January</option><option value="02">February</option><option value="03">March</option>
+                    <option value="04">April</option><option value="05">May</option><option value="06">June</option>
+                    <option value="07">July</option><option value="08">August</option><option value="09">September</option>
+                    <option value="10">October</option><option value="11">November</option><option value="12">December</option>
+                </select>
+            </div>
+            <div style="display: flex; gap: 12px; flex-wrap: wrap;">
+                <button class="btn btn-manage" onclick="toggleCategoriesModal()">⚙️ Manage Categories</button>
+                <button class="btn btn-img" onclick="downloadReportImage()">📸 Download Image</button>
+            </div>
+        </div>
+
+        <div class="entry-form-wrapper">
+            <div class="entry-form-box">
+                <h3 class="section-title" style="border-color: var(--success); color: var(--success);">📥 Add Income (প্রাপ্তি)</h3>
+                <div class="form-grid">
+                    <div class="form-group half"><label>Date</label><input type="date" id="incomeDate"></div>
+                    <div class="form-group half"><label>Category</label><select id="incomeCategory"><option value="">-- Select --</option></select></div>
+                    <div class="form-group"><label>Description</label><input type="text" id="incomeDesc" placeholder="যেমন: ডিম বিক্রি বা প্রফিট"></div>
+                    <div class="form-group"><label>Amount (৳)</label><input type="number" id="incomeAmount" placeholder="0.00" step="0.01"></div>
+                    <div class="form-group"><button class="btn btn-add" style="width: 100%; height: 50px; justify-content: center;" onclick="addEntry('income')">Save Income</button></div>
+                </div>
+            </div>
+
+            <div class="entry-form-box">
+                <h3 class="section-title" style="border-color: var(--danger); color: var(--danger);">📤 Add Expense (খরচ)</h3>
+                <div class="form-grid">
+                    <div class="form-group half"><label>Date</label><input type="date" id="expenseDate"></div>
+                    <div class="form-group half"><label>Category</label><select id="expenseCategory"><option value="">-- Select --</option></select></div>
+                    <div class="form-group"><label>Description</label><input type="text" id="expenseDesc" placeholder="যেমন: স্থায়ী সেটআপ, খাবার"></div>
+                    <div class="form-group"><label>Amount (৳)</label><input type="number" id="expenseAmount" placeholder="0.00" step="0.01"></div>
+                    <div class="form-group"><button class="btn btn-add" style="background: linear-gradient(135deg, #ef4444, #dc2626); width: 100%; height: 50px; justify-content: center;" onclick="addEntry('expense')">Save Expense</button></div>
+                </div>
+            </div>
+        </div>
+
+        <div id="reportContainer">
+            <div class="summary-container">
+                <div class="card card-income">
+                    <h4>Total Income (পাওয়া টাকা)</h4>
+                    <div class="amount" id="totalIncomeAmount">৳0.00</div>
+                </div>
+                <div class="card card-expense">
+                    <h4>Total Expense (খরচ)</h4>
+                    <div class="amount" id="totalExpenseAmount">৳0.00</div>
+                </div>
+                <div class="card">
+                    <h4>Net Balance (সঞ্চয়)</h4>
+                    <div class="amount" id="netBalanceAmount">৳0.00</div>
+                </div>
+            </div>
+
+            <div class="table-responsive">
+                <h3 style="padding: 22px 22px 0 22px; color: var(--success); margin: 0; font-size: 15px;">📥 Income Records</h3>
+                <table>
+                    <thead><tr><th>Date</th><th>Category</th><th>Description</th><th style="text-align: right;">Amount (৳)</th><th style="text-align: center; width: 80px;" class="action-col">Action</th></tr></thead>
+                    <tbody id="incomeTableBody"></tbody>
+                </table>
+            </div>
+
+            <div class="table-responsive">
+                <h3 style="padding: 22px 22px 0 22px; color: var(--danger); margin: 0; font-size: 15px;">📤 Expense Records</h3>
+                <table>
+                    <thead><tr><th>Date</th><th>Category</th><th>Description</th><th style="text-align: right;">Amount (৳)</th><th style="text-align: center; width: 80px;" class="action-col">Action</th></tr></thead>
+                    <tbody id="expenseTableBody"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- PAGE 2: 4 Pillar Graph View -->
+    <div id="graphView" class="page-view">
+        <h2 class="header-title">📊 <span>4 Pillar Cashflow</span> Dashboard</h2>
+        
+        <div style="display: flex; justify-content: flex-end; margin-bottom: 20px;">
+            <button class="btn btn-img" onclick="downloadGraphImage()">📸 Download Complete Dashboard Image</button>
+        </div>
+
+        <div class="ds-widget" id="dsWidgetContainer">
+            <div class="ds-top-stats">
+                <div>
+                    <div class="ds-stat-num" id="dsExpTotal" style="color: #cbd5e1;">৳0</div>
+                    <div class="ds-stat-label">Total expenses</div>
+                </div>
+                <div class="ds-divider"></div>
+                <div>
+                    <div class="ds-stat-num" id="dsNetProfit" style="color: #10b981;">৳0</div>
+                    <div class="ds-stat-label">নিট পকেট লাভ</div>
+                </div>
+                <div class="ds-divider"></div>
+                <div>
+                    <div class="ds-stat-num" id="dsSavingsRate" style="color: #10b981;">0%</div>
+                    <div class="ds-stat-label">Savings rate</div>
+                </div>
+            </div>
+
+            <div class="ds-chart-container">
+                <svg id="dsSankeySvg" viewBox="0 0 900 260" preserveAspectRatio="none"></svg>
+            </div>
+
+            <div style="margin-top: 35px;">
+                <div class="category-section-title">Income sources</div>
+                <div class="categories-grid" id="dsIncomeCategoriesGrid"></div>
+            </div>
+
+            <div style="margin-top: 25px;">
+                <div class="category-section-title">Expense categories</div>
+                <div class="categories-grid" id="dsExpenseCategoriesGrid"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Category Manager Modal -->
+    <div class="modal" id="categoriesModal">
+        <div class="modal-content">
+            <h3 style="margin-top:0; font-size: 18px; font-weight: 700; margin-bottom: 20px;">⚙️ Manage Categories</h3>
+            <h4 style="color: var(--success); margin-bottom: 8px; font-size: 11px; text-transform: uppercase; font-weight: 700;">Income Categories</h4>
+            <div style="display: flex; gap: 10px; margin-bottom: 15px;">
+                <input type="text" id="newIncomeCat" placeholder="New Income Category">
+                <button class="btn btn-add" onclick="addCategory('income')">Add</button>
+            </div>
+            <div id="incomeCatList" style="max-height: 130px; overflow-y: auto; margin-bottom: 20px;"></div>
+
+            <h4 style="color: var(--danger); margin-bottom: 8px; font-size: 11px; text-transform: uppercase; font-weight: 700;">Expense Categories</h4>
+            <div style="display: flex; gap: 10px; margin-bottom: 15px;">
+                <input type="text" id="newExpenseCat" placeholder="New Expense Category">
+                <button class="btn btn-add" style="background: linear-gradient(135deg, #ef4444, #dc2626);" onclick="addCategory('expense')">Add</button>
+            </div>
+            <div id="expenseCatList" style="max-height: 130px; overflow-y: auto; margin-bottom: 20px;"></div>
+
+            <div style="text-align: right;"><button class="btn btn-manage" onclick="toggleCategoriesModal()">Close & Save</button></div>
+        </div>
+    </div>
+
+    <script>
+        let incomeCategories = JSON.parse(localStorage.getItem('incomeCategories')) || ["ডিম বিক্রি (৭-৮ মাস)", "পুরনো হাঁস বিক্রি", "মাছ বিক্রি", "পূর্বের মাসের উদ্বৃত্ত (Balance)"];
+        let expenseCategories = JSON.parse(localStorage.getItem('expenseCategories')) || ["স্থায়ী সেটআপ (পাড়, ঘর, বেড়া, লাইট)", "পোনা ও বাচ্চা ক্রয়", "হাঁস ও মাছের খাবার/ভ্যাকসিন"];
+
+        let incomeData = JSON.parse(localStorage.getItem('incomeData')) || [];
+        let expenseData = JSON.parse(localStorage.getItem('expenseData')) || [];
+
+        function switchTab(viewId, btn) {
+            document.querySelectorAll('.page-view').forEach(v => v.classList.remove('active'));
+            document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+            document.getElementById(viewId).classList.add('active');
+            btn.classList.add('active');
+            if(viewId === 'graphView') {
+                initDsGraph();
+            }
+        }
+
+        window.onload = function() {
+            let today = new Date().toISOString().split('T')[0];
+            let currentYear = today.substring(0, 4);
+            let currentMonth = today.substring(5, 7);
+            
+            document.getElementById('incomeDate').value = today;
+            document.getElementById('expenseDate').value = today;
+
+            populateYearDropdown(currentYear);
+            document.getElementById('filterMonth').value = currentMonth;
+
+            updateCategoryDropdowns();
+            renderAndCalculate();
+        };
+
+        function populateYearDropdown(selectedYear) {
+            let yearSelect = document.getElementById('filterYear');
+            let currentSelected = yearSelect.value || selectedYear;
+            let yearsSet = new Set();
+            
+            let currentRealYear = new Date().getFullYear();
+            for (let y = currentRealYear - 5; y <= currentRealYear + 5; y++) { yearsSet.add(y.toString()); }
+            yearsSet.add(selectedYear);
+
+            incomeData.forEach(item => { if(item.date) yearsSet.add(item.date.substring(0, 4)); });
+            expenseData.forEach(item => { if(item.date) yearsSet.add(item.date.substring(0, 4)); });
+
+            let sortedYears = Array.from(yearsSet).sort().reverse();
+            yearSelect.innerHTML = '';
+            sortedYears.forEach(y => { yearSelect.innerHTML += `<option value="${y}">${y}</option>`; });
+            yearSelect.value = yearsSet.has(currentSelected) ? currentSelected : sortedYears[0];
+        }
+
+        function saveToLocalStorage() {
+            localStorage.setItem('incomeData', JSON.stringify(incomeData));
+            localStorage.setItem('expenseData', JSON.stringify(expenseData));
+            localStorage.setItem('incomeCategories', JSON.stringify(incomeCategories));
+            localStorage.setItem('expenseCategories', JSON.stringify(expenseCategories));
+            populateYearDropdown(document.getElementById('filterYear').value);
+        }
+
+        function updateCategoryDropdowns() {
+            let incSelect = document.getElementById('incomeCategory');
+            let expSelect = document.getElementById('expenseCategory');
+            let incVal = incSelect.value;
+            let expVal = expSelect.value;
+
+            incSelect.innerHTML = '<option value="">-- Select Category --</option>';
+            incomeCategories.forEach(cat => { if(cat !== "পূর্বের মাসের উদ্বৃত্ত (Balance)") incSelect.innerHTML += `<option value="${cat}">${cat}</option>`; });
+            incSelect.value = incVal;
+
+            expSelect.innerHTML = '<option value="">-- Select Category --</option>';
+            expenseCategories.forEach(cat => { expSelect.innerHTML += `<option value="${cat}">${cat}</option>`; });
+            expSelect.value = expVal;
+        }
+
+        function addEntry(type) {
+            let dateVal = document.getElementById(type + 'Date').value;
+            let catVal = document.getElementById(type + 'Category').value;
+            let descVal = document.getElementById(type + 'Desc').value;
+            let amountVal = document.getElementById(type + 'Amount').value;
+
+            if (!dateVal || !catVal || !amountVal || Number(amountVal) <= 0) {
+                alert('দয়া করে সঠিক তথ্য প্রদান করুন।');
+                return;
+            }
+
+            let newItem = { id: Date.now(), date: dateVal, category: catVal, description: descVal || '-', amount: Number(amountVal) };
+            if (type === 'income') incomeData.push(newItem);
+            else expenseData.push(newItem);
+
+            saveToLocalStorage();
+            document.getElementById(type + 'Desc').value = '';
+            document.getElementById(type + 'Amount').value = '';
+            renderAndCalculate();
+        }
+
+        function deleteRow(type, id) {
+            let targetItem = (type === 'income' ? incomeData : expenseData).find(i => i.id === id);
+            if(targetItem && targetItem.isAutoGenerated) {
+                alert('এটি স্বয়ংক্রিয়ভাবে পূর্বের মাস থেকে আসা ব্যালেন্স, তাই সরাসরি মোছা যাবে না।');
+                return;
+            }
+            if (confirm('আপনি কি এই এন্ট্রিটি মুছে ফেলতে চান?')) {
+                if (type === 'income') incomeData = incomeData.filter(item => item.id !== id);
+                else expenseData = expenseData.filter(item => item.id !== id);
+                saveToLocalStorage();
+                renderAndCalculate();
+            }
+        }
+
+        // Updated Logic: January will never carry over from previous year. Each year starts fresh.
+        function getLatestCarriedForwardBalance(year, monthNum) {
+            let targetYear = parseInt(year);
+            let targetMonth = parseInt(monthNum);
+
+            // Jodi January hoy, tahole ager bochorer kichui carry hobe na (New Year, Fresh Start)
+            if (targetMonth === 1) {
+                return 0;
+            }
+
+            let currY = targetYear;
+            let currM = targetMonth - 1;
+
+            while (currM >= 1) {
+                let mStr = currM < 10 ? '0' + currM : '' + currM;
+                let hasEntries = false;
+                let mInc = 0, mExp = 0;
+
+                incomeData.forEach(item => {
+                    if (item.date && item.date.substring(0, 7) === `${currY}-${mStr}` && !item.isAutoGenerated) {
+                        hasEntries = true;
+                    }
+                });
+                expenseData.forEach(item => {
+                    if (item.date && item.date.substring(0, 7) === `${currY}-${mStr}`) {
+                        hasEntries = true;
+                    }
+                });
+
+                if (hasEntries || currM > 1) {
+                    return getNetBalanceUpToMonth(currY, currM);
+                }
+                currM--;
+            }
+
+            return 0;
+        }
+
+        // Calculates net balance strictly within the *same* calendar year up to the target month
+        function getNetBalanceUpToMonth(year, monthNum) {
+            let totalInc = 0, totalExp = 0;
+            let targetYear = parseInt(year);
+            let targetMonth = parseInt(monthNum);
+
+            for (let m = 1; m <= targetMonth; m++) {
+                let mStr = m < 10 ? '0' + m : '' + m;
+                incomeData.forEach(item => {
+                    if (item.date && item.date.substring(0, 7) === `${targetYear}-${mStr}` && !item.isAutoGenerated) {
+                        totalInc += item.amount;
+                    }
+                });
+                expenseData.forEach(item => {
+                    if (item.date && item.date.substring(0, 7) === `${targetYear}-${mStr}`) {
+                        totalExp += item.amount;
+                    }
+                });
+            }
+
+            return totalInc - totalExp;
+        }
+
+        function renderAndCalculate() {
+            let selectedYear = document.getElementById('filterYear').value;
+            let selectedMonth = document.getElementById('filterMonth').value;
+            let totalIncome = 0, totalExpense = 0;
+
+            let incTbody = document.getElementById('incomeTableBody');
+            let expTbody = document.getElementById('expenseTableBody');
+            incTbody.innerHTML = ''; expTbody.innerHTML = '';
+
+            let effectiveIncomeList = [...incomeData];
+
+            if (selectedMonth !== 'all') {
+                let carriedBalance = getLatestCarriedForwardBalance(selectedYear, parseInt(selectedMonth));
+                if (carriedBalance !== 0) {
+                    effectiveIncomeList.push({
+                        id: 'auto_' + selectedYear + '_' + selectedMonth,
+                        date: `${selectedYear}-${selectedMonth}-01`,
+                        category: "পূর্বের মাসের উদ্বৃত্ত (Balance)",
+                        description: "পূর্বের মাসের সমাপনী নিট ব্যালেন্স (Opening Balance)",
+                        amount: carriedBalance,
+                        isAutoGenerated: true
+                    });
+                }
+            }
+
+            let filterLogic = item => {
+                if (!item.date) return false;
+                if (selectedMonth !== 'all') return item.date.substring(0, 7) === `${selectedYear}-${selectedMonth}`;
+                return item.date.substring(0, 4) === selectedYear;
+            };
+
+            effectiveIncomeList.forEach(item => { 
+                if(filterLogic(item)) { 
+                    totalIncome += item.amount; 
+                    appendRow(incTbody, item, 'income'); 
+                } 
+            });
+            
+            expenseData.forEach(item => { 
+                if(filterLogic(item)) { 
+                    totalExpense += item.amount; 
+                    appendRow(expTbody, item, 'expense'); 
+                } 
+            });
+
+            let netBalance = totalIncome - totalExpense;
+            document.getElementById('totalIncomeAmount').innerText = '৳' + totalIncome.toLocaleString('en-IN', {minimumFractionDigits: 2});
+            document.getElementById('totalExpenseAmount').innerText = '৳' + totalExpense.toLocaleString('en-IN', {minimumFractionDigits: 2});
+            let netElem = document.getElementById('netBalanceAmount');
+            netElem.innerText = '৳' + netBalance.toLocaleString('en-IN', {minimumFractionDigits: 2});
+            netElem.style.color = netBalance >= 0 ? 'var(--success)' : 'var(--danger)';
+        }
+
+        function appendRow(tbody, item, type) {
+            let row = document.createElement('tr');
+            if(item.isAutoGenerated) row.classList.add('opening-balance-row');
+            let actionBtn = item.isAutoGenerated ? '<span style="color: var(--text-muted); font-size: 11px;">Auto</span>' : `<button class="btn-delete" onclick="deleteRow('${type}', ${item.id})">✕</button>`;
+            row.innerHTML = `<td>${item.date}</td><td>${item.category}</td><td>${item.description}</td><td style="text-align: right; font-weight: 700; color: ${type === 'income' ? 'var(--success)' : 'var(--danger)'};">৳${item.amount.toLocaleString('en-IN', {minimumFractionDigits: 2})}</td><td style="text-align: center;" class="action-col">${actionBtn}</td>`;
+            tbody.appendChild(row);
+        }
+
+        function toggleCategoriesModal() {
+            let modal = document.getElementById('categoriesModal');
+            modal.style.display = modal.style.display === 'flex' ? 'none' : 'flex';
+            if (modal.style.display === 'flex') renderCategoryLists();
+        }
+
+        function renderCategoryLists() {
+            let incContainer = document.getElementById('incomeCatList');
+            incContainer.innerHTML = '';
+            incomeCategories.forEach((cat, index) => {
+                if(cat !== "পূর্বের মাসের উদ্বৃত্ত (Balance)") {
+                    incContainer.innerHTML += `<div class="item-row"><input type="text" value="${cat}" onchange="updateCategory('income', ${index}, this.value)"><button class="btn-delete" onclick="removeCategory('income', ${index})">✕</button></div>`;
+                }
+            });
+            let expContainer = document.getElementById('expenseCatList');
+            expContainer.innerHTML = '';
+            expenseCategories.forEach((cat, index) => {
+                expContainer.innerHTML += `<div class="item-row"><input type="text" value="${cat}" onchange="updateCategory('expense', ${index}, this.value)"><button class="btn-delete" onclick="removeCategory('expense', ${index})">✕</button></div>`;
+            });
+            updateCategoryDropdowns();
+        }
+
+        function addCategory(type) {
+            let input = document.getElementById(type === 'income' ? 'newIncomeCat' : 'newExpenseCat');
+            let val = input.value.trim();
+            if (val) {
+                if (type === 'income') incomeCategories.push(val);
+                else expenseCategories.push(val);
+                input.value = '';
+                saveToLocalStorage();
+                renderCategoryLists();
+            }
+        }
+
+        function updateCategory(type, index, val) {
+            let list = type === 'income' ? incomeCategories : expenseCategories;
+            if (val.trim()) { list[index] = val.trim(); saveToLocalStorage(); updateCategoryDropdowns(); }
+        }
+
+        function removeCategory(type, index) {
+            let list = type === 'income' ? incomeCategories : expenseCategories;
+            list.splice(index, 1);
+            saveToLocalStorage();
+            renderCategoryLists();
+        }
+
+        function downloadReportImage() {
+            let reportElement = document.getElementById('reportContainer');
+            document.querySelectorAll('.action-col').forEach(el => el.style.display = 'none');
+            html2canvas(reportElement, { scale: 2, useCORS: true, backgroundColor: '#111827' }).then(canvas => {
+                let link = document.createElement('a');
+                link.download = 'Income_Expense_Report.png';
+                link.href = canvas.toDataURL('image/png');
+                link.click();
+                document.querySelectorAll('.action-col').forEach(el => el.style.display = '');
+            });
+        }
+
+        function downloadGraphImage() {
+            let widgetElement = document.getElementById('dsWidgetContainer');
+            html2canvas(widgetElement, { scale: 2, useCORS: true, backgroundColor: '#090d16' }).then(canvas => {
+                let link = document.createElement('a');
+                link.download = '4_Pillar_Cashflow_Dashboard.png';
+                link.href = canvas.toDataURL('image/png');
+                link.click();
+            });
+        }
+
+        function initDsGraph() {
+            let selectedYear = document.getElementById('filterYear').value;
+            let selectedMonth = document.getElementById('filterMonth').value;
+
+            let incTotals = {};
+            incomeCategories.forEach(cat => { if(cat !== "পূর্বের মাসের উদ্বৃত্ত (Balance)") incTotals[cat] = 0; });
+            incTotals["পূর্বের মাসের উদ্বৃত্ত (Balance)"] = 0;
+
+            let activeIncList = [...incomeData];
+            if (selectedMonth !== 'all') {
+                let carriedBalance = getLatestCarriedForwardBalance(selectedYear, parseInt(selectedMonth));
+                if (carriedBalance !== 0) {
+                    activeIncList.push({
+                        date: `${selectedYear}-${selectedMonth}-01`,
+                        category: "পূর্বের মাসের উদ্বৃত্ত (Balance)",
+                        amount: carriedBalance
+                    });
+                }
+            }
+
+            activeIncList.forEach(item => {
+                if(item.date && (selectedMonth === 'all' || item.date.substring(0, 7) === `${selectedYear}-${selectedMonth}`)) {
+                    let cat = item.category || 'Others';
+                    if(incTotals[cat] === undefined) incTotals[cat] = 0;
+                    incTotals[cat] += item.amount;
+                }
+            });
+
+            let expTotals = {};
+            expenseCategories.forEach(cat => expTotals[cat] = 0);
+            expenseData.forEach(item => {
+                if(item.date && (selectedMonth === 'all' || item.date.substring(0, 7) === `${selectedYear}-${selectedMonth}`)) {
+                    let cat = item.category || 'Others';
+                    if(expTotals[cat] === undefined) expTotals[cat] = 0;
+                    expTotals[cat] += item.amount;
+                }
+            });
+
+            renderDsDashboard(incTotals, expTotals);
+            renderDsCategoryCards(incTotals, expTotals);
+        }
+
+        function renderDsDashboard(incTotals, expTotals) {
+            let totalInc = Object.values(incTotals).reduce((a, b) => a + b, 0);
+            let totalExp = Object.values(expTotals).reduce((a, b) => a + b, 0);
+            let netProfit = totalInc - totalExp;
+            let savingsRate = totalInc > 0 ? Math.round((netProfit / totalInc) * 100) : 0;
+
+            document.getElementById('dsExpTotal').textContent = '৳' + totalExp.toLocaleString('en-IN');
+            document.getElementById('dsNetProfit').textContent = '৳' + netProfit.toLocaleString('en-IN');
+            let rateEl = document.getElementById('dsSavingsRate');
+            rateEl.textContent = Math.max(0, savingsRate) + '%';
+            rateEl.style.color = savingsRate >= 0 ? '#10b981' : '#ef4444';
+
+            let svg = document.getElementById('dsSankeySvg');
+            let svgContent = '';
+
+            let col1X = 50, col2X = 410, col3X = 510, col4X = 750;
+            let incKeys = Object.keys(incTotals).filter(k => incTotals[k] > 0);
+            if(incKeys.length === 0) incKeys = Object.keys(incTotals);
+            let startY = 30;
+            let incBoxH = 45;
+
+            incKeys.forEach((cat, idx) => {
+                let y = startY + (idx * 65);
+                svgContent += `<rect x="${col1X}" y="${y}" width="60" height="${incBoxH}" rx="8" fill="#60a5fa" opacity="0.85"/>`;
+                svgContent += `<text x="${col1X}" y="${y - 8}" fill="#94a3b8" font-size="11" font-weight="600">${cat} (৳${(incTotals[cat] || 0).toLocaleString('en-IN')})</text>`;
+                
+                let pathY = y + incBoxH/2;
+                svgContent += `<path d="M ${col1X + 60} ${pathY} C 250 ${pathY}, 250 110, ${col2X} 110" stroke="#60a5fa" stroke-width="12" fill="none" opacity="0.3"/>`;
+            });
+
+            svgContent += `<rect x="${col2X}" y="70" width="14" height="80" rx="4" fill="#60a5fa"/>`;
+            svgContent += `<text x="${col2X - 25}" y="55" fill="#ffffff" font-size="12" font-weight="700">মোট আয়</text>`;
+
+            svgContent += `<path d="M ${col2X + 14} 110 C 460 110, 460 70, ${col3X} 70" stroke="#fca5a5" stroke-width="25" fill="none" opacity="0.5"/>`;
+            svgContent += `<path d="M ${col2X + 14} 110 C 460 110, 460 160, ${col3X} 160" stroke="#10b981" stroke-width="45" fill="none" opacity="0.7"/>`;
+
+            svgContent += `<rect x="${col3X}" y="45" width="14" height="50" rx="4" fill="#fca5a5" opacity="0.85"/>`;
+            svgContent += `<text x="${col3X - 35}" y="30" fill="#ffffff" font-size="12" font-weight="700">মোট অপারেশনাল খরচ</text>`;
+
+            svgContent += `<rect x="${col3X}" y="115" width="14" height="90" rx="4" fill="#10b981"/>`;
+            svgContent += `<text x="${col3X + 25}" y="225" fill="#ffffff" font-size="12" font-weight="700">নিট লাভ</text>`;
+
+            let expKeys = Object.keys(expTotals);
+            expKeys.forEach((cat, idx) => {
+                let y = 35 + (idx * 45);
+                svgContent += `<rect x="${col4X}" y="${y}" width="14" height="30" rx="4" fill="#fca5a5"/>`;
+                svgContent += `<text x="${col4X + 25}" y="${y + 20}" fill="#94a3b8" font-size="11" font-weight="600">${cat} (৳${(expTotals[cat] || 0).toLocaleString('en-IN')})</text>`;
+                svgContent += `<path d="M ${col3X + 14} 70 C 630 70, 630 ${y + 15}, ${col4X} ${y + 15}" stroke="#fca5a5" stroke-width="8" fill="none" opacity="0.4"/>`;
+            });
+
+            svg.innerHTML = svgContent;
+        }
+
+        function renderDsCategoryCards(incTotals, expTotals) {
+            let incGrid = document.getElementById('dsIncomeCategoriesGrid');
+            incGrid.innerHTML = '';
+            Object.keys(incTotals).forEach(cat => {
+                let val = incTotals[cat];
+                if(val > 0 || cat === "পূর্বের মাসের উদ্বৃত্ত (Balance)") {
+                    incGrid.innerHTML += `
+                        <div class="cat-view-card">
+                            <div class="cat-view-header">
+                                <div class="cat-dot" style="background: #60a5fa;"></div>
+                                <span>${cat}</span>
+                            </div>
+                            <div class="cat-slider-track">
+                                <div class="cat-slider-fill" style="width: 100%; background: #60a5fa;"></div>
+                            </div>
+                            <div class="cat-value-badge">৳${val.toLocaleString('en-IN')}</div>
+                        </div>
+                    `;
+                }
+            });
+
+            let expGrid = document.getElementById('dsExpenseCategoriesGrid');
+            expGrid.innerHTML = '';
+            Object.keys(expTotals).forEach(cat => {
+                let val = expTotals[cat];
+                expGrid.innerHTML += `
+                    <div class="cat-view-card">
+                        <div class="cat-view-header">
+                            <div class="cat-dot" style="background: #fca5a5;"></div>
+                            <span>${cat}</span>
+                        </div>
+                        <div class="cat-slider-track">
+                            <div class="cat-slider-fill" style="width: 100%; background: #fca5a5;"></div>
+                        </div>
+                        <div class="cat-value-badge">৳${val.toLocaleString('en-IN')}</div>
+                    </div>
+                `;
+            });
+        }
+    </script>
+</body>
+</html>
